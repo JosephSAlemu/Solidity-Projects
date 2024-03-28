@@ -1,0 +1,139 @@
+/**
+ *Submitted for verification at Etherscan.io on 2024-02-19
+*/
+
+// SPDX-License-Identifier: MIT
+
+//Specify the required compiler to use.
+pragma solidity >=0.7.0 <0.9.0; 
+
+// ERC-20 interface
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+contract DemonToken_Wk7_1 is IERC20 {
+    string public name = "Decentralized Central Bank";
+    string public symbol = "DCB";
+    uint8 public decimals = 18;
+    uint private _totalSupply = 0;
+    uint public cappedSupply = 0;
+    bool private _paused = false;
+    address private _owner;
+
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    modifier onlyOwner() {
+        // If the first argument of 'require' evaluates to 'false', execution terminates and all
+        // changes to the state and to Ether balances are reverted.
+        // This used to consume all gas in old EVM versions, but not anymore.
+        // It is often a good idea to use 'require' to check if functions are called correctly.
+        // As a second argument, you can also provide an explanation about what went wrong.
+        require(msg.sender == _owner, "Must be owner!");
+        _;
+    }
+
+    modifier whenNotPaused(){
+
+        require(!_paused, "Contract is paused!" );
+        _;
+    }
+
+    constructor(uint cappedSupplies, uint initialAmmount) {
+        _owner = msg.sender;
+        cappedSupply = cappedSupplies * (10 ** uint256(decimals));
+        _totalSupply = initialAmmount * (10 ** uint256(decimals));
+        _balances[msg.sender] = initialAmmount * (10 ** uint256(decimals));
+        emit Transfer(address(0), msg.sender, initialAmmount * (10 ** uint256(decimals)));
+    }
+
+    function isPaused() public view returns(bool){
+        return _paused;
+    }
+
+    function _mint(address to, uint256 amount) private {
+        require(to != address(0), "Invalid address");
+        require(_totalSupply+ amount < cappedSupply, "Contract is paused!");
+        _balances[to] += amount;
+        _totalSupply+=amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function mintAsOwner(address to, uint256 amount) public onlyOwner whenNotPaused{
+        _mint(to, amount);
+    }
+
+    function burn(uint burnTokens) public{
+        require(_balances[msg.sender] >= burnTokens, "Not enough tokens!");
+        _totalSupply-=burnTokens;
+        _balances[msg.sender]-=burnTokens;
+        emit Transfer(msg.sender, address(0), burnTokens);
+    }
+
+    function flipPaused() public onlyOwner{
+        _paused=!_paused;
+    }
+    
+    function setOwner (address person) public onlyOwner{
+        _owner = person;
+    }
+
+    function getOwner() public view returns (address){
+        return _owner;
+    }
+
+
+    //returns the total supply of tokens
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    //returns the balance of the specific account stored in the _balances mapping
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        require(to != address(0), "Invalid address");
+        require(_balances[msg.sender] >= amount, "Insufficient balance");
+
+        _balances[msg.sender] -= amount;
+        _balances[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 value) public override returns (bool) {
+        require(spender != address(0), "Invalid address");
+        
+        _allowances[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 value) public override returns (bool) {
+        require(sender != address(0), "Invalid address");
+        require(recipient != address(0), "Invalid address");
+        require(_balances[sender] >= value, "Insufficient balance");
+        require(_allowances[sender][msg.sender] >= value, "Transfer value exceeds allowance");
+
+        _balances[sender] -= value;
+        _balances[recipient] += value;
+        _allowances[sender][msg.sender] -= value;
+        emit Transfer(sender, recipient, value);
+        return true;
+    }
+}
